@@ -234,7 +234,7 @@ def main():
     print_ascii_art()
     
     target = input("Enter an IP address, range, domain name, or file path: ").strip()
-    output_file = input("Enter the name of the output file (without extension): ").strip() + '.out'
+    output_file = input("Enter the name of your project: ").strip() + '.out'
     
     initial_scan(target, output_file)
     
