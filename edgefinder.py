@@ -75,10 +75,7 @@ def nmap_scan(ip, flags, output_file, output_format):
     if output_file:
         if output_format == 'oA':
             command += ['-oA', output_file]
-        elif output_format == 'oN':
-            command += ['-oN', output_file]
-        elif output_format == 'oX':
-            command += ['-oX', output_file]
+
     try:
         result = subprocess.check_output(command, stderr=subprocess.STDOUT, text=True)
         if not output_file:
@@ -185,7 +182,6 @@ def perform_nmap_on_file(file_path):
     nmap_output_format = 'oA'
     if nmap_output_choice == 'y':
         nmap_output_file = input("Enter the output file name: ").strip()
-        nmap_output_format = input("Enter the output format (oA, oN, oX) [default: oA]: ").strip().lower()
         if nmap_output_format not in ['oA', 'oN', 'oX']:
             nmap_output_format = 'oA'
     
@@ -204,7 +200,7 @@ def ask_nslookup_sublist3r_results(sublist3r_output_file):
         perform_nslookup_on_file(sublist3r_output_file)
 
 def perform_nslookup_on_file(file_path):
-    output_file = file_path + '.nslookup.out'
+    output_file = os.path.splitext(file_path)[0] + '_nslookup.out'
     with open(file_path, 'r') as file:
         lines = file.readlines()
     with open(output_file, 'w') as out_file:
@@ -226,6 +222,7 @@ def sublist3r_scan_and_print(domain, output_file):
             print(result)
             out_file.write(result + '\n')
     print(f"Sublist3r results written to {output_file}")
+    ask_nslookup_sublist3r_results(output_file)
 
 def main():
     print("Starting EdgeFinder initialization...")
