@@ -25,8 +25,8 @@ def check_dependency(command, package_name):
         print(f"Checking {package_name}...")
         subprocess.check_output(command, stderr=subprocess.STDOUT, text=True, timeout=3)
         print(f"{package_name} is installed.")
-    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
-        print(f"{package_name} is not installed or validation took too long. Please install it manually.")
+    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired) as e:
+        print(f"{package_name} is not installed or validation took too long. Error: {e}. Please install it manually.")
 
 def check_dependencies():
     dependencies = [
@@ -60,15 +60,15 @@ def nslookup(domain):
     try:
         result = subprocess.check_output(['nslookup', domain], stderr=subprocess.STDOUT, text=True)
         return result.split()[-1]
-    except subprocess.CalledProcessError:
-        return "Lookup failed"
+    except subprocess.CalledProcessError as e:
+        return f"Lookup failed: {e}"
 
 def sublist3r_scan(domain):
     try:
         result = subprocess.check_output(['sublist3r', '-d', domain], stderr=subprocess.STDOUT, text=True)
         return result.splitlines()
-    except subprocess.CalledProcessError:
-        return ["Sublist3r scan failed"]
+    except subprocess.CalledProcessError as e:
+        return [f"Sublist3r scan failed: {e}"]
 
 def nmap_scan(ip, flags, output_file, output_format):
     command = ['nmap'] + flags.split() + [ip]
@@ -83,8 +83,8 @@ def nmap_scan(ip, flags, output_file, output_format):
         result = subprocess.check_output(command, stderr=subprocess.STDOUT, text=True)
         if not output_file:
             return result
-    except subprocess.CalledProcessError:
-        return "Nmap scan failed"
+    except subprocess.CalledProcessError as e:
+        return f"Nmap scan failed: {e}"
 
 def process_file(file_path, data_type, perform_nslookup, output_file, perform_nmap, nmap_flags, nmap_output_file, nmap_output_format, quiet_mode):
     if not os.path.isfile(file_path):
@@ -144,9 +144,9 @@ def prompt_msfconsole_import(output_file, quiet_mode):
     if import_choice == 'y':
         try:
             subprocess.check_call(['msfconsole', '-x', f'db_import {output_file}.xml; exit'])
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as e:
             if not quiet_mode:
-                print("Failed to import nmap results to msfconsole database.")
+                print(f"Failed to import nmap results to msfconsole database: {e}")
 
 def initial_scan(target, output_file):
     if os.path.isfile(target):
