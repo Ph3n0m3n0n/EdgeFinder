@@ -4,6 +4,7 @@ import argparse
 import subprocess
 import sys
 import os
+import glob
 
 def print_ascii_art():
     print(r"""
@@ -18,14 +19,18 @@ def print_ascii_art():
 def parse_args():
     parser = argparse.ArgumentParser(
         description="EdgeFinder - A tool for processing domain and IP files.",
-        epilog="Example usage: ./edgefinder.py -f targets.txt -t domains -n -o results.txt"
+        epilog="Example usage:\n"
+               "  ./edgefinder.py -f targets.txt -t domains -n -o results.txt\n"
+               "  ./edgefinder.py -s single_domain.com\n"
+               "  ./edgefinder.py -i single_ip_address\n"
+               "  ./edgefinder.py -d /path/to/nmap/results"
     )
     parser.add_argument(
-        '-f', '--file', type=str, required=True,
+        '-f', '--file', type=str,
         help='File path containing domains or IPs'
     )
     parser.add_argument(
-        '-t', '--type', type=str, choices=['domains', 'ips'], required=True,
+        '-t', '--type', type=str, choices=['domains', 'ips'],
         help='Type of data in the file: "domains" or "ips"'
     )
     parser.add_argument(
@@ -33,12 +38,20 @@ def parse_args():
         help='Perform nslookup on domains'
     )
     parser.add_argument(
-        '-s', '--nmap', action='store_true',
-        help='Perform nmap scan on IPs'
+        '-s', '--single', type=str,
+        help='Single domain for sublist3r scan'
+    )
+    parser.add_argument(
+        '-i', '--ip', type=str,
+        help='Single IP address for nmap scan'
     )
     parser.add_argument(
         '-o', '--output', type=str,
         help='Output file name for results'
+    )
+    parser.add_argument(
+        '-d', '--directory', type=str,
+        help='Parent directory containing .xml files for msfconsole import'
     )
     return parser.parse_args()
 
@@ -69,7 +82,20 @@ def sublist3r_scan(domain, output_file):
         print(f"Sublist3r scan failed for {domain}: {e.output}")
         return "Sublist3r scan failed"
 
-def process_file(file_path, data_type, perform_nslookup, perform_nmap, output_file):
+def import_to_msfconsole(directory):
+    xml_files = glob.glob(os.path.join(directory, "*.xml"))
+    if not xml_files:
+        print("No .xml files found in the specified directory.")
+        return
+    
+    for xml_file in xml_files:
+        try:
+            subprocess.check_output(['msfconsole', '-q', '-x', f"db_import {xml_file}; exit"], stderr=subprocess.STDOUT, text=True)
+            print(f"Imported {xml_file} into msfconsole database.")
+        except subprocess.CalledProcessError as e:
+            print(f"Failed to import {xml_file} into msfconsole: {e.output}")
+
+def process_file(file_path, data_type, perform_nslookup, output_file):
     if not os.path.isfile(file_path):
         print("File not found!")
         sys.exit(1)
@@ -84,16 +110,7 @@ def process_file(file_path, data_type, perform_nslookup, perform_nmap, output_fi
             ip = nslookup(line)
             results.append(f"{line} -> {ip}")
 
-    if data_type == 'domains':
-        if not output_file:
-            print("Output file name is required for Sublist3r scan.")
-            sys.exit(1)
-        for line in lines:
-            print(f"Performing Sublist3r scan for {line}...")
-            scan_result = sublist3r_scan(line, output_file)
-            results.append(f"Sublist3r result for {line}:\n{scan_result}")
-
-    if perform_nmap and data_type == 'ips':
+    if data_type == 'ips':
         if not output_file:
             print("Output file name is required for nmap scan.")
             sys.exit(1)
@@ -112,10 +129,31 @@ def process_file(file_path, data_type, perform_nslookup, perform_nmap, output_fi
 def main():
     print_ascii_art()
     args = parse_args()
-    if args.nslookup and not args.output:
-        print("Output file name is required when using nslookup.")
+
+    if args.single:
+        output_file = args.output or f"{args.single}.out"
+        print(f"Performing sublist3r scan for {args.single}...")
+        result = sublist3r_scan(args.single, output_file)
+        print(result)
+        return
+
+    if args.ip:
+        output_file = args.output or f"{args.ip}.out"
+        print(f"Performing nmap scan for {args.ip}...")
+        result = nmap_scan(args.ip, output_file)
+        print(result)
+        return
+
+    if args.directory:
+        print(f"Importing .xml files from {args.directory} into msfconsole database...")
+        import_to_msfconsole(args.directory)
+        return
+
+    if args.file and args.type:
+        process_file(args.file, args.type, args.nslookup, args.output)
+    else:
+        print("Please provide a valid file path and type, or a single domain/IP address, or a parent directory.")
         sys.exit(1)
-    process_file(args.file, args.type, args.nslookup, args.nmap, args.output)
 
 if __name__ == "__main__":
     main()
