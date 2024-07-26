@@ -18,32 +18,28 @@ def print_ascii_art():
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="EdgeFinder - A tool for processing domain and IP files.",
+        description="EdgeFinder - A tool for processing and organizing externally facing domains and IPs.",
         epilog="Example usage:\n"
-               "  ./edgefinder.py -f targets.txt -t domains -n -o results.txt\n"
-               "  ./edgefinder.py -s single_domain.com\n"
+               "  ./edgefinder.py -f list_of_domains.txt -n -o results.out\n"
+               "  ./edgefinder.py -s single_domain.com -o results.out\n"
                "  ./edgefinder.py -i single_ip_address\n"
                "  ./edgefinder.py -d /path/to/nmap/results"
     )
     parser.add_argument(
         '-f', '--file', type=str,
-        help='File path containing domains or IPs'
-    )
-    parser.add_argument(
-        '-t', '--type', type=str, choices=['domains', 'ips'],
-        help='Type of data in the file: "domains" or "ips"'
+        help='Specify file path to a file containing domains or IPs.'
     )
     parser.add_argument(
         '-n', '--nslookup', action='store_true',
-        help='Perform nslookup on domains'
+        help='Performs nslookup on a list of domains and outputs results to a .out file.'
     )
     parser.add_argument(
         '-s', '--single', type=str,
-        help='Single domain for sublist3r scan'
+        help='Enter a single domain for sublist3r scan. Results output to a .out file.'
     )
     parser.add_argument(
         '-i', '--ip', type=str,
-        help='Single IP address for nmap scan'
+        help='Enter a single IP address for nmap scan (default flags are: -sS -A, default output -oA)'
     )
     parser.add_argument(
         '-o', '--output', type=str,
@@ -95,7 +91,7 @@ def import_to_msfconsole(directory):
         except subprocess.CalledProcessError as e:
             print(f"Failed to import {xml_file} into msfconsole: {e.output}")
 
-def process_file(file_path, data_type, perform_nslookup, output_file):
+def process_file(file_path, perform_nslookup, output_file):
     if not os.path.isfile(file_path):
         print("File not found!")
         sys.exit(1)
@@ -104,20 +100,29 @@ def process_file(file_path, data_type, perform_nslookup, output_file):
         lines = [line.strip() for line in file.readlines()]
 
     results = []
-    if perform_nslookup and data_type == 'domains':
-        for line in lines:
-            print(f"Performing nslookup for {line}...")
-            ip = nslookup(line)
-            results.append(f"{line} -> {ip}")
-
-    if data_type == 'ips':
-        if not output_file:
-            print("Output file name is required for nmap scan.")
+    if perform_nslookup:
+        # Check if lines are domains
+        if all('.' in line for line in lines):
+            for line in lines:
+                print(f"Performing nslookup for {line}...")
+                ip = nslookup(line)
+                results.append(f"{line} -> {ip}")
+        else:
+            print("Nslookup cannot be performed because the file contains IP addresses instead of domains.")
             sys.exit(1)
-        for line in lines:
-            print(f"Performing nmap scan for {line}...")
-            scan_result = nmap_scan(line, output_file)
-            results.append(f"Scan result for {line}:\n{scan_result}")
+    else:
+        # Check if lines are IPs
+        if all(line.replace('.', '').isdigit() for line in lines):
+            if not output_file:
+                print("Output file name is required for nmap scan.")
+                sys.exit(1)
+            for line in lines:
+                print(f"Performing nmap scan for {line}...")
+                scan_result = nmap_scan(line, output_file)
+                results.append(f"Scan result for {line}:\n{scan_result}")
+        else:
+            print("Nmap scan cannot be performed because the file contains domains instead of IP addresses.")
+            sys.exit(1)
 
     if results and output_file:
         with open(output_file, 'w') as out_file:
@@ -149,10 +154,10 @@ def main():
         import_to_msfconsole(args.directory)
         return
 
-    if args.file and args.type:
-        process_file(args.file, args.type, args.nslookup, args.output)
+    if args.file:
+        process_file(args.file, args.nslookup, args.output)
     else:
-        print("Please provide a valid file path and type, or a single domain/IP address, or a parent directory.")
+        print("Please provide a valid file path, or a single domain/IP address, or a parent directory.")
         sys.exit(1)
 
 if __name__ == "__main__":
