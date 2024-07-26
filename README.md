@@ -1,6 +1,6 @@
 # EdgeFinder
 
-EdgeFinder is a tool for processing domains, IPs in an effort to discover "The Edge". It includes functionality for performing nslookup and nmap scans.
+EdgeFinder is a comprehensive command-line tool designed to process domains, IPs & files. It supports various network reconnaissance and information gathering tasks by leveraging utilities like nslookup, nmap, and Sublist3r. This tool is particularly useful for security professionals and network administrators who need to automate the collection of "edge" assets for security assessments.
 
 ## Prerequisites
 
