@@ -4,7 +4,6 @@ import argparse
 import subprocess
 import sys
 import os
-import traceback
 
 def print_ascii_art():
     print(r"""
@@ -13,89 +12,86 @@ def print_ascii_art():
  |  _| / _` |/ _` |/ _ | |_  | | '_ \ / _` |/ _ | '__|
  | |__| (_| | (_| |  __|  _| | | | | | (_| |  __| |   
  |_____\__,_|\__, |\___|_|   |_|_| |_|\__,_|\___|_|   
-             |___/                                          
+             |___/                                     
     """)
-
-def check_dependencies():
-    dependencies = [
-        (['python3', '--version'], 'python3'),
-        (['pip3', '--version'], 'python3-pip'),
-        (['nmap', '--version'], 'nmap'),
-        (['nslookup', '--version'], 'dnsutils'),
-        (['msfconsole', '--version'], 'metasploit-framework'),
-        (['sublist3r', '--version'], 'sublist3r')
-    ]
-    for command, package in dependencies:
-        try:
-            subprocess.check_output(command, stderr=subprocess.STDOUT, text=True, timeout=3)
-        except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
-            print(f"{package} is not installed. Please install it manually.")
 
 def parse_args():
     parser = argparse.ArgumentParser(description="EdgeFinder - A tool for processing domain and IP files.")
-    parser.add_argument('-f', '--file', required=True, type=str, help='File path containing domains or IPs')
-    parser.add_argument('-t', '--type', required=True, type=str, choices=['domains', 'ips'], help='Type of data in the file')
+    parser.add_argument('-f', '--file', type=str, required=True, help='File path containing domains or IPs')
+    parser.add_argument('-t', '--type', type=str, choices=['domains', 'ips'], required=True, help='Type of data in the file')
     parser.add_argument('-n', '--nslookup', action='store_true', help='Perform nslookup on domains')
-    parser.add_argument('-o', '--output', type=str, help='Output file name for nslookup results')
-    parser.add_argument('--nmap', action='store_true', help='Perform nmap scan on IPs')
-    parser.add_argument('--ip-file', type=str, help='File path containing IP addresses for nmap scan')
-    parser.add_argument('-q', '--quiet', action='store_true', help='Run without stdout output (quiet mode)')
+    parser.add_argument('-s', '--nmap', action='store_true', help='Perform nmap scan on IPs')
+    parser.add_argument('-o', '--output', type=str, help='Output file name for results')
     return parser.parse_args()
 
 def nslookup(domain):
     try:
         result = subprocess.check_output(['nslookup', domain], stderr=subprocess.STDOUT, text=True)
-        return result.split()[-1]
-    except subprocess.CalledProcessError as e:
-        return f"Lookup failed: {e.output.strip()}"
+        lines = result.splitlines()
+        ip_line = next((line for line in lines if 'Address:' in line), "Lookup failed")
+        return ip_line.split()[-1] if ip_line != "Lookup failed" else ip_line
+    except subprocess.CalledProcessError:
+        return "Lookup failed"
 
-def sublist3r_scan(domain):
+def nmap_scan(ip, output_file):
     try:
-        result = subprocess.check_output(['sublist3r', '-d', domain], stderr=subprocess.STDOUT, text=True)
-        return result.splitlines()
-    except subprocess.CalledProcessError as e:
-        return f"Sublist3r scan failed: {e.output.strip()}"
+        output_base = output_file.rsplit('.', 1)[0]  # Remove extension for -oA
+        result = subprocess.check_output(['nmap', '-sS', '-A', '-oA', output_base, ip], stderr=subprocess.STDOUT, text=True)
+        return result
+    except subprocess.CalledProcessError:
+        return "Nmap scan failed"
 
-def nmap_scan(ip, flags, output_file, output_format):
-    command = ['nmap'] + flags.split() + [ip]
-    if output_file:
-        command += [f'-{output_format}', output_file]
+def sublist3r_scan(domain, output_file):
     try:
-        result = subprocess.check_output(command, stderr=subprocess.STDOUT, text=True)
-        return result if not output_file else None
-    except subprocess.CalledProcessError as e:
-        return f"Nmap scan failed: {e.output.strip()}"
+        result = subprocess.check_output(['sublist3r', '-d', domain, '-o', output_file], stderr=subprocess.STDOUT, text=True)
+        return result
+    except subprocess.CalledProcessError:
+        return "Sublist3r scan failed"
 
-def process_file(args):
-    while not os.path.isfile(args.file):
+def process_file(file_path, data_type, perform_nslookup, perform_nmap, output_file):
+    if not os.path.isfile(file_path):
         print("File not found!")
-        args.file = input("Please enter a valid file path or type 'exit' or 'quit' to exit: ")
-        if args.file.lower() in ['exit', 'quit']:
-            sys.exit(0)
+        sys.exit(1)
     
-    with open(args.file, 'r') as file:
-        lines = file.readlines()
+    with open(file_path, 'r') as file:
+        lines = [line.strip() for line in file.readlines()]
 
-    if args.type == 'domains' and args.nslookup:
-        with open(args.output, 'w') as out_file:
-            for domain in lines:
-                result = nslookup(domain.strip())
-                out_file.write(f"{domain.strip()} -> {result}\n")
-                if args.file.lower() in ['exit', 'quit']:
-                 sys.exit(0)
+    results = []
+    if perform_nslookup and data_type == 'domains':
+        for line in lines:
+            ip = nslookup(line)
+            results.append(f"{line} -> {ip}")
 
-    if args.nmap:
-        for ip in lines:
-            ip = ip.strip()
-            result = nmap_scan(ip, '-sS -A', args.ip_file, 'oA')
-            if result and not args.quiet:
-                print(f"Nmap scan result for {ip}:\n{result}")
+    if data_type == 'domains':
+        if not output_file:
+            print("Output file name is required for Sublist3r scan.")
+            sys.exit(1)
+        for line in lines:
+            scan_result = sublist3r_scan(line, output_file)
+            results.append(f"Sublist3r result for {line}:\n{scan_result}")
+
+    if perform_nmap and data_type == 'ips':
+        if not output_file:
+            print("Output file name is required for nmap scan.")
+            sys.exit(1)
+        for line in lines:
+            scan_result = nmap_scan(line, output_file)
+            results.append(f"Scan result for {line}:\n{scan_result}")
+
+    if results and output_file:
+        with open(output_file, 'w') as out_file:
+            out_file.write("\n".join(results))
+        print(f"Results written to {output_file}")
+    else:
+        print("\n".join(results))
 
 def main():
     print_ascii_art()
-    check_dependencies()
     args = parse_args()
-    process_file(args)
+    if args.nslookup and not args.output:
+        print("Output file name is required when using nslookup.")
+        sys.exit(1)
+    process_file(args.file, args.type, args.nslookup, args.nmap, args.output)
 
 if __name__ == "__main__":
     main()
