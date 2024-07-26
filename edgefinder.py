@@ -16,12 +16,30 @@ def print_ascii_art():
     """)
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="EdgeFinder - A tool for processing domain and IP files.")
-    parser.add_argument('-f', '--file', type=str, required=True, help='File path containing domains or IPs')
-    parser.add_argument('-t', '--type', type=str, choices=['domains', 'ips'], required=True, help='Type of data in the file')
-    parser.add_argument('-n', '--nslookup', action='store_true', help='Perform nslookup on domains')
-    parser.add_argument('-s', '--nmap', action='store_true', help='Perform nmap scan on IPs')
-    parser.add_argument('-o', '--output', type=str, help='Output file name for results')
+    parser = argparse.ArgumentParser(
+        description="EdgeFinder - A tool for processing domain and IP files.",
+        epilog="Example usage: ./edgefinder.py -f targets.txt -t domains -n -o results.txt"
+    )
+    parser.add_argument(
+        '-f', '--file', type=str, required=True,
+        help='File path containing domains or IPs'
+    )
+    parser.add_argument(
+        '-t', '--type', type=str, choices=['domains', 'ips'], required=True,
+        help='Type of data in the file: "domains" or "ips"'
+    )
+    parser.add_argument(
+        '-n', '--nslookup', action='store_true',
+        help='Perform nslookup on domains'
+    )
+    parser.add_argument(
+        '-s', '--nmap', action='store_true',
+        help='Perform nmap scan on IPs'
+    )
+    parser.add_argument(
+        '-o', '--output', type=str,
+        help='Output file name for results'
+    )
     return parser.parse_args()
 
 def nslookup(domain):
@@ -30,7 +48,8 @@ def nslookup(domain):
         lines = result.splitlines()
         ip_line = next((line for line in lines if 'Address:' in line), "Lookup failed")
         return ip_line.split()[-1] if ip_line != "Lookup failed" else ip_line
-    except subprocess.CalledProcessError:
+    except subprocess.CalledProcessError as e:
+        print(f"Nslookup failed for {domain}: {e.output}")
         return "Lookup failed"
 
 def nmap_scan(ip, output_file):
@@ -38,14 +57,16 @@ def nmap_scan(ip, output_file):
         output_base = output_file.rsplit('.', 1)[0]  # Remove extension for -oA
         result = subprocess.check_output(['nmap', '-sS', '-A', '-oA', output_base, ip], stderr=subprocess.STDOUT, text=True)
         return result
-    except subprocess.CalledProcessError:
+    except subprocess.CalledProcessError as e:
+        print(f"Nmap scan failed for {ip}: {e.output}")
         return "Nmap scan failed"
 
 def sublist3r_scan(domain, output_file):
     try:
         result = subprocess.check_output(['sublist3r', '-d', domain, '-o', output_file], stderr=subprocess.STDOUT, text=True)
         return result
-    except subprocess.CalledProcessError:
+    except subprocess.CalledProcessError as e:
+        print(f"Sublist3r scan failed for {domain}: {e.output}")
         return "Sublist3r scan failed"
 
 def process_file(file_path, data_type, perform_nslookup, perform_nmap, output_file):
@@ -59,6 +80,7 @@ def process_file(file_path, data_type, perform_nslookup, perform_nmap, output_fi
     results = []
     if perform_nslookup and data_type == 'domains':
         for line in lines:
+            print(f"Performing nslookup for {line}...")
             ip = nslookup(line)
             results.append(f"{line} -> {ip}")
 
@@ -67,6 +89,7 @@ def process_file(file_path, data_type, perform_nslookup, perform_nmap, output_fi
             print("Output file name is required for Sublist3r scan.")
             sys.exit(1)
         for line in lines:
+            print(f"Performing Sublist3r scan for {line}...")
             scan_result = sublist3r_scan(line, output_file)
             results.append(f"Sublist3r result for {line}:\n{scan_result}")
 
@@ -75,6 +98,7 @@ def process_file(file_path, data_type, perform_nslookup, perform_nmap, output_fi
             print("Output file name is required for nmap scan.")
             sys.exit(1)
         for line in lines:
+            print(f"Performing nmap scan for {line}...")
             scan_result = nmap_scan(line, output_file)
             results.append(f"Scan result for {line}:\n{scan_result}")
 
