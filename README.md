@@ -20,20 +20,36 @@ Ensure the following dependencies are installed on your system:
     cd EdgeFinder
     ```
 
+## Features
+
+- **Nslookup**: Perform nslookup on a list of domains.
+- **Nmap Scan**: Perform nmap scans on a list of IP addresses.
+- **Sublist3r Scan**: Scan a single domain using sublist3r.
+- **msfconsole Import**: Import XML files into the msfconsole database.
+
 ## Usage
 
-### Command Line Arguments
+### Command-line Arguments
 
-- `-f, --file`: File path containing domains or IPs
-- `-t, --type`: Type of data in the file (`domains`, `ips`, `both`)
-- `-n, --nslookup`: Perform nslookup on domains
-- `-o, --output`: Output file name for nslookup results
-- `--nmap`: Perform nmap scan on IPs
-- `--ip-file`: File path containing IP addresses for nmap scan
-- `-q, --quiet`: Run without stdout output (quiet mode)
+```text
+usage: edgefinder.py [-h] [-f FILE] [-n] [-s SINGLE] [-i IP] [-o OUTPUT] [-d DIRECTORY]
+
+EdgeFinder - A tool for processing and organizing externally facing domains and IPs.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -f FILE, --file FILE  Specify file path to a file containing domains or IPs.
+  -n, --nslookup        Performs nslookup on a list of domains and outputs results to a .out file.
+  -s SINGLE, --single SINGLE
+                        Enter a single domain for sublist3r scan. Results output to a .out file.
+  -i IP, --ip IP        Enter a single IP address for nmap scan (default flags are: -sS -A, default output -oA)
+  -o OUTPUT, --output OUTPUT
+                        Output file name for results
+  -d DIRECTORY, --directory DIRECTORY
+                        Parent directory containing .xml files for msfconsole import
 
 ### Running the Script
 
 ```sh
-python3 edgefinder.py
+python3 edgefinder.py -h 
 
