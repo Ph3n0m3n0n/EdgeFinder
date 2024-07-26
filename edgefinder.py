@@ -4,6 +4,7 @@ import argparse
 import subprocess
 import sys
 import os
+import traceback
 
 def print_ascii_art():
     print(r"""
@@ -48,12 +49,11 @@ def nslookup(domain):
     except subprocess.CalledProcessError as e:
         return f"Lookup failed: {e.output.strip()}"
 
-
 def sublist3r_scan(domain):
     try:
         result = subprocess.check_output(['sublist3r', '-d', domain], stderr=subprocess.STDOUT, text=True)
         return result.splitlines()
-    except subprocess.CalledProcessError:
+    except subprocess.CalledProcessError as e:
         return f"Sublist3r scan failed: {e.output.strip()}"
 
 def nmap_scan(ip, flags, output_file, output_format):
@@ -63,12 +63,15 @@ def nmap_scan(ip, flags, output_file, output_format):
     try:
         result = subprocess.check_output(command, stderr=subprocess.STDOUT, text=True)
         return result if not output_file else None
-    except subprocess.CalledProcessError:
+    except subprocess.CalledProcessError as e:
         return f"Nmap scan failed: {e.output.strip()}"
 
 def process_file(args):
-    if not os.path.isfile(args.file):
+    while not os.path.isfile(args.file):
         print("File not found!")
+        args.file = input("Please enter a valid file path or type 'exit' or 'quit' to exit: ")
+        if args.file.lower() in ['exit', 'quit']:
+            sys.exit(0)
     
     with open(args.file, 'r') as file:
         lines = file.readlines()
@@ -78,6 +81,8 @@ def process_file(args):
             for domain in lines:
                 result = nslookup(domain.strip())
                 out_file.write(f"{domain.strip()} -> {result}\n")
+                if args.file.lower() in ['exit', 'quit']:
+                 sys.exit(0)
 
     if args.nmap:
         for ip in lines:
