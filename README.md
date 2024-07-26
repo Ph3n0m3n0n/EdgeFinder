@@ -1,12 +1,12 @@
 # EdgeFinder
 
-EdgeFinder is a tool for processing domain and IP files. It includes functionality for performing nslookup and nmap scans.
+EdgeFinder is a tool for processing domains, IPs in an effort to discover "The Edge". It includes functionality for performing nslookup and nmap scans.
 
 ## Prerequisites
 
 Ensure the following dependencies are installed on your system:
 - Python 3
-- pip (Python package installer)
+- pip3 (Python package installer)
 - nmap
 - dnsutils (for nslookup)
 - metasploit-framework (for msfconsole)
@@ -18,11 +18,6 @@ Ensure the following dependencies are installed on your system:
     ```sh
     git clone https://github.com/Ph3n0m3n0n/EdgeFinder.git
     cd EdgeFinder
-    ```
-
-2. Install Python dependencies:
-    ```sh
-    pip install -r requirements.txt
     ```
 
 ## Usage
